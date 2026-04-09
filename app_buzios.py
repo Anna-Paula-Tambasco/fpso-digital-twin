@@ -473,6 +473,13 @@ with aba2:
             X['Energia_Onda'] = df['Onda_Hs_m'] ** 2
             
             X_ia = X[features_ordem]
+
+            # Salvando TODAS as variáveis da física na tabela final para a Aba 3 poder ler!
+            for col in features_ordem:
+                df[col] = X[col]
+            df['Delta_Vento_Onda'] = X['Delta_Vento_Onda'] # Garantindo o Mar Cruzado da Aba 4
+            # ----------------------------
+
             for alvo in ['SLS_Guindaste', 'SLS_ROV', 'SLS_Barco_Apoio', 'SLS_Offloading']:
                 riscos = modelos_ia[alvo].predict_proba(X_ia)[:, 1]
                 df[f'Risco_Prob_{alvo}'] = riscos 
@@ -717,7 +724,7 @@ with aba3:
             else:
                 with coluna_feat:
                     st.info("Aguardando processamento de dados...")
-                    
+
     else:
         st.warning("⚠️ **Aviso de Dados:** Arquivo de histórico não processado.")
 
