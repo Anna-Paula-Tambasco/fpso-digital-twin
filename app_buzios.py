@@ -784,14 +784,20 @@ with aba4:
         fig_timeline.add_hrect(y0=45, y1=180, row=2, col=1, fillcolor="orange", opacity=0.1, layer="below")
 
         # --- A CEREJA DO BOLO: MARCO ZERO DO CICLONE ---
-        # Convertendo o Timestamp para texto (String) para evitar o bug matemático do Plotly
-        pico_str = data_pico.strftime('%Y-%m-%d %H:%M:%S')
+        # 1. Desenhamos as linhas puras usando a data original (sem texto embutido para evitar o bug do Plotly)
+        fig_timeline.add_vline(x=data_pico, line_width=2, line_dash="dashdot", line_color="black", row=1, col=1)
+        fig_timeline.add_vline(x=data_pico, line_width=2, line_dash="dashdot", line_color="black", row=2, col=1)
 
-        fig_timeline.add_vline(x=pico_str, line_width=2, line_dash="dashdot", line_color="black", annotation_text="💥 PICO", annotation_position="top left", row=1, col=1)
-        fig_timeline.add_vline(x=pico_str, line_width=2, line_dash="dashdot", line_color="black", row=2, col=1)
+        # 2. Adicionamos o texto de forma independente e segura no topo do gráfico
+        fig_timeline.add_annotation(
+            x=data_pico, y=1.05, yref="paper", 
+            text="💥 PICO DO EVENTO", showarrow=False, 
+            font=dict(color="black", size=14, weight="bold"), 
+            row=1, col=1
+        )
 
         fig_timeline.update_layout(
-            height=650, margin=dict(l=20, r=20, t=30, b=20),
+            height=650, margin=dict(l=20, r=20, t=40, b=20), # 't' ajustado para 40 para caber o texto
             legend=dict(orientation="h", y=-0.15, x=0.5, xanchor="center"),
             hovermode="x unified"
         )
