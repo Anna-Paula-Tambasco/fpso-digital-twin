@@ -669,17 +669,32 @@ with aba3:
         
         for alvo, coluna_feat in maquinas_feat:
             modelo = modelos_ia[alvo]
-            if hasattr(modelo, 'feature_importances_'):
-                importancias = modelo.feature_importances_
+            importancias = None
+            
+            # O "Caçador de Pesos": Extrai a matemática seja um Pipeline, Random Forest ou Regressão Logística
+            estimador = modelo[-1] if hasattr(modelo, 'steps') else modelo
+            
+            if hasattr(estimador, 'feature_importances_'):
+                importancias = estimador.feature_importances_
+            elif hasattr(estimador, 'coef_'):
+                importancias = np.abs(estimador.coef_[0]) # Pega o valor absoluto da força da variável
+                
+            if importancias is not None:
                 df_feat = pd.DataFrame({'Feature_Técnica': features_ordem, 'Importância': importancias})
                 df_feat['Sensor'] = df_feat['Feature_Técnica'].map(mapa_features).fillna(df_feat['Feature_Técnica'])
+                
+                # Normalizando os pesos para exibição em porcentagem (0 a 100%)
+                df_feat['Importância'] = (df_feat['Importância'] / df_feat['Importância'].sum()) * 100
                 df_feat = df_feat.sort_values(by='Importância', ascending=True).tail(8) 
                 
                 with coluna_feat:
                     nome_maquina = alvo.replace('SLS_', '').replace('_', ' ')
                     fig_feat = go.Figure(go.Bar(x=df_feat['Importância'], y=df_feat['Sensor'], orientation='h', marker=dict(color='#003366')))
-                    fig_feat.update_layout(title=f"{nome_maquina}", xaxis_title="Peso Matemático", yaxis=dict(tickfont=dict(size=12)), height=300, margin=dict(l=10, r=10, t=40, b=10))
+                    fig_feat.update_layout(title=f"{nome_maquina}", xaxis_title="Impacto na Decisão (%)", yaxis=dict(tickfont=dict(size=12)), height=300, margin=dict(l=10, r=10, t=40, b=10))
                     st.plotly_chart(fig_feat, use_container_width=True)
+            else:
+                with coluna_feat:
+                    st.info(f"O modelo para {alvo} é uma 'Caixa Preta' totalmente selada (sem suporte a extração de pesos).")
 
     else:
         st.warning("⚠️ **Aviso de Dados:** Arquivo de histórico não processado.")
