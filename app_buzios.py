@@ -598,7 +598,7 @@ with aba3:
                 xaxis_title="Período de Pico ($T_p$) - Segundos", yaxis_title="Altura Significativa ($H_s$) - Metros",
                 xaxis=dict(range=[2, 22], dtick=2), yaxis=dict(range=[0, 12], dtick=1),
                 height=550, margin=dict(l=20, r=20, t=30, b=20),
-                legend=dict(yanchor="top", y=0.98, xanchor="right", x=0.98, bgcolor="rgba(255,255,255,0.9)")
+                legend=dict(yanchor="top", y=0.98, xanchor="right", x=0.98, bgcolor="rgba(255,255,255,0.9)", font=dict(color="black"))
             )
             st.plotly_chart(fig_scatter, use_container_width=True)
             st.caption("📌 A linha tracejada preta é o limite físico real. A **linha laranja** é a regra antiga. Note que a IA encontra ressonância (X vermelhos) abaixo da regra antiga, e libera produção acima dela.")
@@ -671,13 +671,19 @@ with aba3:
             modelo = modelos_ia[alvo]
             importancias = None
             
-            # O "Caçador de Pesos": Extrai a matemática seja um Pipeline, Random Forest ou Regressão Logística
-            estimador = modelo[-1] if hasattr(modelo, 'steps') else modelo
+            # O "Caçador Nível Hard": Descasca Pipelines e Otimizadores (GridSearchCV)
+            estimador = modelo
+            if hasattr(estimador, 'best_estimator_'): # Se usou GridSearchCV
+                estimador = estimador.best_estimator_
+            if hasattr(estimador, 'named_steps'): # Se usou Pipeline
+                estimador = list(estimador.named_steps.values())[-1]
             
             if hasattr(estimador, 'feature_importances_'):
                 importancias = estimador.feature_importances_
             elif hasattr(estimador, 'coef_'):
-                importancias = np.abs(estimador.coef_[0]) # Pega o valor absoluto da força da variável
+                # Coef pode vir em matrizes diferentes dependendo do algoritmo
+                coefs = np.abs(estimador.coef_)
+                importancias = coefs[0] if coefs.ndim > 1 else coefs
                 
             if importancias is not None:
                 df_feat = pd.DataFrame({'Feature_Técnica': features_ordem, 'Importância': importancias})
@@ -694,7 +700,7 @@ with aba3:
                     st.plotly_chart(fig_feat, use_container_width=True)
             else:
                 with coluna_feat:
-                    st.info(f"O modelo para {alvo} é uma 'Caixa Preta' totalmente selada (sem suporte a extração de pesos).")
+                    st.info(f"O modelo para {alvo} utiliza um algoritmo sem pesos lineares extraíveis (ex: SVM de margem não-linear ou KNN).")
 
     else:
         st.warning("⚠️ **Aviso de Dados:** Arquivo de histórico não processado.")
