@@ -5,6 +5,7 @@ import joblib
 import requests
 import datetime
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 # ==========================================
 # 1. CONFIGURAÇÃO DA PÁGINA E FUSO HORÁRIO
@@ -146,7 +147,7 @@ with aba1:
         
     else:
         st.sidebar.info("📡 Triangulando Satélites (Copernicus/NOAA)...")
-        hs_atual, tp_atual, dir_onda_sat, hs_ontem_sat, vel_vento_atual, dir_vento_sat, rajada_sat, vento_ontem_sat, carimbo_tempo = buscar_clima_satelite()
+        hs_atual, tp_atual, dir_onda_sat, hs_ontem_sat, vel_vento_atual, dir_vento_sat, rajada_sat, vento_ontem_sat, carimbo_tempo, resp_mar, resp_ar = buscar_clima_satelite()
         
         if hs_atual is not None:
             st.sidebar.success("✅ Conexão Estabelecida!")
@@ -267,6 +268,9 @@ with aba1:
     
     texto_status_ia = ""
     
+    margem_alerta = (limite_seguranca * 100) - 15.0 
+    limite_critico = limite_seguranca * 100
+
     if esbeltez > 0.142: 
         st.error("⚠️ **ERRO DE FÍSICA OCEÂNICA:** Onda com esbeltez além do limite de quebramento (Wave Breaking). O Motor de IA foi desativado temporariamente para evitar falsos positivos.")
         texto_status_ia = "CÁLCULO ABORTADO - ONDA FORA DO ENVELOPE FÍSICO"
@@ -275,9 +279,6 @@ with aba1:
         
         col1, col2, col3, col4 = st.columns(4)
         maquinas = [('SLS_Guindaste', col1), ('SLS_ROV', col2), ('SLS_Barco_Apoio', col3), ('SLS_Offloading', col4)]
-        
-        margem_alerta = (limite_seguranca * 100) - 15.0 
-        limite_critico = limite_seguranca * 100
         
         texto_status_ia += f"(Limiar de Segurança Operacional: {limite_seguranca*100}%)\n"
         
@@ -354,7 +355,7 @@ Boletim gerado eletronicamente pelo Gêmeo Digital Preditivo e assinado digitalm
         mime="text/plain", type="primary"
     )
 
-# --- INOVAÇÃO: RADAR DE JANELAS OPERACIONAIS (PREVISÃO DE 7 DIAS) ---
+    # --- INOVAÇÃO: RADAR DE JANELAS OPERACIONAIS (PREVISÃO DE 7 DIAS) ---
     if modo == "📡 Sincronizar Satélite" and 'resp_mar' in locals() and resp_mar is not None:
         st.markdown("---")
         st.subheader("🔭 Radar de Janelas Operacionais (Previsão de 7 Dias)")
@@ -399,7 +400,7 @@ Boletim gerado eletronicamente pelo Gêmeo Digital Preditivo e assinado digitalm
                 yaxis=dict(range=[0, 105])
             )
             st.plotly_chart(fig_forecast, use_container_width=True)
-            st.caption("📌 **Inteligência Logística:** A zona sombreada em verde no fundo indica áreas onde o risco é mínimo. Procure por vales contínuos no gráfico roxo para agendar operações longas (como descida de ROV ou acoplamento de navio aliviador). Picos que ultrapassam a linha tracejada vermelha exigem abandono iminente da operação.")
+            st.caption("📌 **Inteligência Logística:** A zona sombreada em verde no fundo indica áreas onde o risco é mínimo. Procure por vales contínuos no gráfico roxo para agendar operações longas.")
 
 
 with aba2:
@@ -539,7 +540,6 @@ with aba3:
     st.header("🔬 Diagnóstico Científico e Transparência da IA (Caixa Preta)")
     st.markdown("Análise profunda da física não-linear e dos pesos matemáticos que regem o Gêmeo Digital.")
     
-    # A MÁGICA ACONTECE AQUI: A Aba 3 agora consome o df_historico_completo de 96k linhas da Aba 2!
     if 'df_historico_completo' in locals() and df_historico_completo is not None:
         
         col_scatter, col_radar = st.columns([1.5, 1])
@@ -607,15 +607,12 @@ with aba3:
             }
             col_val, col_dir, cor_radar, unidade_radar = mapa_radar[param_radar]
             
-            # Histograma polar em bins de 22.5 graus
             bins_dir = np.arange(0, 361, 22.5)
             labels_dir = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
             
-            # CORREÇÃO: Passamos a lista inteira de 16 rótulos para as 16 caixas
             df_historico_completo['Dir_Bin'] = pd.cut(df_historico_completo[col_dir], bins=bins_dir, labels=labels_dir, include_lowest=True)
             df_radar = df_historico_completo.groupby('Dir_Bin')[[col_val, col_dir]].mean(numeric_only=True).reset_index()
             
-            # Fechando o polígono do radar (repetindo o primeiro ponto no final)
             theta_radar = labels_dir + [labels_dir[0]]
             r_radar = df_radar[col_val].tolist() + [df_radar[col_val].iloc[0]]
             
@@ -623,7 +620,7 @@ with aba3:
             fill_color = "rgba(0,0,255,0.3)" if cor_radar == 'blue' else ("rgba(128,128,128,0.3)" if cor_radar == 'gray' else "rgba(0,255,255,0.3)")
             
             fig_radar.add_trace(go.Scatterpolar(
-                r=r_radar, theta=theta_radar, fill='autosize', fillcolor=fill_color,
+                r=r_radar, theta=theta_radar, fill='toself', fillcolor=fill_color,
                 name=param_radar, line=dict(color=cor_radar, width=3)
             ))
             
@@ -678,15 +675,12 @@ with aba3:
     else:
         st.warning("⚠️ **Aviso de Dados:** Arquivo de histórico não processado.")
 
-    
-
 with aba4:
     st.header("🌪️ Máquina do Tempo (Dissecação de Tempestades Históricas)")
     st.markdown("Reconstrução hora a hora dos piores Ciclones Extratropicais da última década em Búzios. Entenda a anatomia do caos e o custo financeiro do evento.")
 
     if 'df_historico_completo' in locals() and df_historico_completo is not None:
         
-        # INOVAÇÃO 1: Catálogo expandido (Top 10 tempestades para dar poder de escolha)
         top_tempestades = df_historico_completo.nlargest(10, 'Onda_Hs_m')
         
         opcoes_tempestade = {}
@@ -702,7 +696,6 @@ with aba4:
             
         data_pico = opcoes_tempestade[evento_selecionado]
         
-        # Filtra uma janela de 3 dias antes e 3 dias depois do pico
         janela_inicio = data_pico - datetime.timedelta(days=3)
         janela_fim = data_pico + datetime.timedelta(days=3)
         
@@ -712,11 +705,9 @@ with aba4:
         coluna_risco = f'Risco_Prob_{alvo_evento}'
         nome_maq = alvo_evento.replace('SLS_', '')
         
-        # INOVAÇÃO 2: O "Recibo" da Tempestade (A Fatura Financeira do Evento)
         horas_downtime = df_evento[f'Falha_{alvo_evento}'].sum()
         dias_downtime = horas_downtime / 24.0
         
-        # Reutilizando as variáveis financeiras da Aba 2 (se existirem, senão usa padrão)
         rec_dia = (producao_bopd * preco_brent) if 'producao_bopd' in locals() else (150000 * 82.5)
         custo_osv = custo_barco if 'custo_barco' in locals() else 50000
         
@@ -724,7 +715,6 @@ with aba4:
         tipo_custo = "Lucro Cessante (Retido)" if alvo_evento == 'SLS_Offloading' else "OPEX Desperdiçado"
         
         with col_fatura:
-            # Capturando a origem da força bruta no momento de pico do Ciclone
             linha_pico = df_evento.loc[df_evento['Onda_Hs_m'].idxmax()]
             dir_pico = linha_pico['Onda_Dir_graus']
             
@@ -733,31 +723,28 @@ with aba4:
             st.metric(f"Impacto ({tipo_custo})", f"${custo_evento:,.0f} USD", delta_color="inverse")
             st.metric("Vetor de Ataque (Pico)", f"Onda vindo de {dir_pico:.0f}°", "Análise Estrutural", delta_color="off")
             
-            st.markdown("---")
-            # O botão corporativo: Exportar o Ciclone para a equipe de Terra (Engenharia)
-            csv_evento = df_evento[['Data', 'Onda_Hs_m', 'Onda_Tp_s', 'Onda_Dir_graus', 'Vento_Vel_10m_m_s', 'Vento_Dir_graus', 'Delta_Vento_Onda', coluna_risco, f'Falha_{alvo_evento}']].to_csv(index=False, sep=";")
-            st.download_button(
-                label="📥 Exportar Dados do Ciclone (CSV)",
-                data=csv_evento,
-                file_name=f"Laudo_Ciclone_{data_pico.strftime('%Y%m%d')}_{nome_maq}.csv",
-                mime="text/csv",
-                type="primary",
-                use_container_width=True
-            )
+        # O botão corporativo: Movido para fora da coluna para não ficar "espremido"
+        st.markdown("---")
+        csv_evento = df_evento[['Data', 'Onda_Hs_m', 'Onda_Tp_s', 'Onda_Dir_graus', 'Vento_Vel_10m_m_s', 'Vento_Dir_graus', 'Delta_Vento_Onda', coluna_risco, f'Falha_{alvo_evento}']].to_csv(index=False, sep=";")
+        st.download_button(
+            label="📥 Exportar Dados do Ciclone para Equipe de Engenharia (CSV)",
+            data=csv_evento,
+            file_name=f"Laudo_Ciclone_{data_pico.strftime('%Y%m%d')}_{nome_maq}.csv",
+            mime="text/csv",
+            type="secondary",
+            use_container_width=True
+        )
+            
         st.subheader(f"Evolução Crítica: Dinâmica de Força vs. Mar Cruzado")
-        
-        # --- INOVAÇÃO 3: Subplots Sincronizados (Força em cima, Caos Direcional embaixo) ---
-        from plotly.subplots import make_subplots
         
         fig_timeline = make_subplots(
             rows=2, cols=1, 
             shared_xaxes=True, 
             vertical_spacing=0.08,
-            row_heights=[0.7, 0.3], # O gráfico de cima é maior
+            row_heights=[0.7, 0.3], 
             specs=[[{"secondary_y": True}], [{"secondary_y": False}]]
         )
         
-        # --- GRAFICO SUPERIOR (FORÇA E RISCO DA IA) ---
         fig_timeline.add_trace(
             go.Scatter(x=df_evento['Data'], y=df_evento['Onda_Hs_m'], name="Altura da Onda (Hs)", line=dict(color='#0066cc', width=3)),
             row=1, col=1, secondary_y=False
@@ -766,7 +753,6 @@ with aba4:
             go.Scatter(x=df_evento['Data'], y=df_evento['Vento_Vel_10m_m_s'], name="Vel. Vento (m/s)", line=dict(color='gray', width=2, dash='dot')),
             row=1, col=1, secondary_y=False
         )
-        # Área de Risco da IA
         fig_timeline.add_trace(
             go.Scatter(
                 x=df_evento['Data'], y=df_evento[coluna_risco] * 100, name=f"Risco IA (%)", 
@@ -774,38 +760,36 @@ with aba4:
             ),
             row=1, col=1, secondary_y=True
         )
-        fig_timeline.add_hline(y=limite_seguranca*100, row=1, col=1, secondary_y=True, line_dash="dash", line_color="darkred", annotation_text="SUSPENSÃO")
+        
+        # A Linha Laranja da Regra Antiga (Aba 4)
+        limite_tradicional = 3.5 if alvo_evento == 'SLS_Offloading' else 2.5
+        fig_timeline.add_hline(y=limite_tradicional, row=1, col=1, secondary_y=False, line_dash="dot", line_color="orange", annotation_text=f"Regra Antiga ({limite_tradicional}m)")
+        
+        fig_timeline.add_hline(y=limite_seguranca*100, row=1, col=1, secondary_y=True, line_dash="dash", line_color="darkred", annotation_text="SUSPENSÃO IA")
 
-        # --- GRAFICO INFERIOR (O CAOS: MAR CRUZADO) ---
-        # Plotando o Delta Vento-Onda
         fig_timeline.add_trace(
             go.Scatter(x=df_evento['Data'], y=df_evento['Delta_Vento_Onda'], name="Δ Vento-Onda (Graus)", line=dict(color='purple', width=2)),
             row=2, col=1
         )
-        # Linha de perigo para Mar Cruzado (acima de 45 graus é crítico)
         fig_timeline.add_hline(y=45, row=2, col=1, line_dash="solid", line_color="orange", annotation_text="Zona de Mar Cruzado")
         fig_timeline.add_hrect(y0=45, y1=180, row=2, col=1, fillcolor="orange", opacity=0.1, layer="below")
 
-        # --- A CEREJA DO BOLO: MARCO ZERO DO CICLONE ---
-        # Rasga o gráfico de cima a baixo mostrando o momento exato da maior onda
-        fig_timeline.add_vline(x=data_pico, line_width=2, line_dash="dashdot", line_color="black", annotation_text="💥 PICO DO EVENTO", annotation_position="top left", row=1, col=1)
+        fig_timeline.add_vline(x=data_pico, line_width=2, line_dash="dashdot", line_color="black", annotation_text="💥 PICO", annotation_position="top left", row=1, col=1)
         fig_timeline.add_vline(x=data_pico, line_width=2, line_dash="dashdot", line_color="black", row=2, col=1)
 
-        # Ajustando Layout Geral
         fig_timeline.update_layout(
             height=650, margin=dict(l=20, r=20, t=30, b=20),
             legend=dict(orientation="h", y=-0.15, x=0.5, xanchor="center"),
             hovermode="x unified"
         )
         
-        # Ajustando Eixos
         fig_timeline.update_yaxes(title_text="Intensidade ($H_s$ / Vento)", row=1, col=1, secondary_y=False)
         fig_timeline.update_yaxes(title_text="Risco IA (%)", range=[0, 105], row=1, col=1, secondary_y=True)
         fig_timeline.update_yaxes(title_text="Δ Angular (°)", range=[0, 180], tickvals=[0, 45, 90, 180], row=2, col=1)
         
         st.plotly_chart(fig_timeline, use_container_width=True)
         
-        st.caption("📌 **Anatomia do Ciclone:** A linha vertical preta marca o 'Olho' da tempestade. O gráfico inferior é o **'Detector de Caos'**. Quando a linha roxa invade a área laranja (Δ > 45°), o mar está cruzado. Note como a área vermelha (IA) antecipa ou prolonga o perigo além do pico físico, provando que o Gêmeo Digital opera pela ressonância não-linear e não apenas pela altura da onda cega.")
+        st.caption("📌 **Anatomia do Ciclone:** A linha vertical preta marca o 'Olho' da tempestade. O gráfico inferior é o **'Detector de Caos'**. Quando a linha roxa invade a área laranja (Δ > 45°), o mar está cruzado. A **linha pontilhada laranja** superior representa a regra antiga da Petrobras. Note como a área vermelha (IA) antecipa o perigo mesmo quando a onda ainda está abaixo do limite tradicional.")
         
     else:
         st.warning("⚠️ Carregue o Big Data na Aba 2 primeiro para ativar a Máquina do Tempo.")
