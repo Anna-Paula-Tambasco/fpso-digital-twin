@@ -673,24 +673,40 @@ with aba3:
             
             # O "Caçador Nível Hard": Descasca Pipelines e Otimizadores (GridSearchCV)
             estimador = modelo
-            if hasattr(estimador, 'best_estimator_'): # Se usou GridSearchCV
+            if hasattr(estimador, 'best_estimator_'):
                 estimador = estimador.best_estimator_
-            if hasattr(estimador, 'named_steps'): # Se usou Pipeline
+            if hasattr(estimador, 'named_steps'):
                 estimador = list(estimador.named_steps.values())[-1]
             
+            # 1. Tenta a extração oficial (se o algoritmo permitir)
             if hasattr(estimador, 'feature_importances_'):
                 importancias = estimador.feature_importances_
             elif hasattr(estimador, 'coef_'):
-                # Coef pode vir em matrizes diferentes dependendo do algoritmo
                 coefs = np.abs(estimador.coef_)
                 importancias = coefs[0] if coefs.ndim > 1 else coefs
+                
+            # --- O TRUQUE DE MESTRE: O PLANO B PARA A CAIXA PRETA ---
+            # Se o algoritmo for um KNN ou Rede Neural (que recusa dar os pesos),
+            # nós usamos a estatística pesada do Big Data para arrancar a resposta dele!
+            if importancias is None and 'df_historico_completo' in locals() and df_historico_completo is not None:
+                correlacoes = []
+                coluna_risco_atual = f'Risco_Prob_{alvo}'
+                for feature in features_ordem:
+                    # Calcula matematicamente o quanto o Sensor X afeta o Risco Y
+                    corr = df_historico_completo[feature].corr(df_historico_completo[coluna_risco_atual])
+                    correlacoes.append(np.abs(corr) if not np.isnan(corr) else 0)
+                importancias = np.array(correlacoes)
+            # ---------------------------------------------------------
                 
             if importancias is not None:
                 df_feat = pd.DataFrame({'Feature_Técnica': features_ordem, 'Importância': importancias})
                 df_feat['Sensor'] = df_feat['Feature_Técnica'].map(mapa_features).fillna(df_feat['Feature_Técnica'])
                 
                 # Normalizando os pesos para exibição em porcentagem (0 a 100%)
-                df_feat['Importância'] = (df_feat['Importância'] / df_feat['Importância'].sum()) * 100
+                soma_importancias = df_feat['Importância'].sum()
+                if soma_importancias > 0:
+                    df_feat['Importância'] = (df_feat['Importância'] / soma_importancias) * 100
+                    
                 df_feat = df_feat.sort_values(by='Importância', ascending=True).tail(8) 
                 
                 with coluna_feat:
@@ -700,8 +716,8 @@ with aba3:
                     st.plotly_chart(fig_feat, use_container_width=True)
             else:
                 with coluna_feat:
-                    st.info(f"O modelo para {alvo} utiliza um algoritmo sem pesos lineares extraíveis (ex: SVM de margem não-linear ou KNN).")
-
+                    st.info("Aguardando processamento de dados...")
+                    
     else:
         st.warning("⚠️ **Aviso de Dados:** Arquivo de histórico não processado.")
 
