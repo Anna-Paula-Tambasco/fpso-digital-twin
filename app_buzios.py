@@ -258,9 +258,14 @@ with aba1:
         fig_compass.add_trace(go.Scatterpolar(r=[0, 1], theta=[0, corr_rel], mode='lines+markers', name='Corrente', line=dict(color='cyan', width=2), marker=dict(symbol='arrow-up', size=10)))
         
         fig_compass.update_layout(
-            polar=dict(angularaxis=dict(direction='clockwise', rotation=90, tickvals=[0, 45, 90, 135, 180, 225, 270, 315], ticktext=['Proa', 'Boch. BE', 'Través BE', 'Alheta BE', 'Popa', 'Alheta BB', 'Través BB', 'Boch. BB'])), 
-            title={'text': "TELA DE DP (Modo Head-Up)", 'y':0.95, 'x':0.5, 'xanchor': 'center', 'yanchor': 'top'},
-            showlegend=False, margin=dict(t=40, b=20, l=20, r=20), height=280
+            polar=dict(
+                radialaxis=dict(visible=False), # CEREJA DO BOLO: Some com os números do meio
+                angularaxis=dict(direction='clockwise', rotation=90, tickvals=[0, 45, 90, 135, 180, 225, 270, 315], ticktext=['Proa', 'Boch. BE', 'Través BE', 'Alheta BE', 'Popa', 'Alheta BB', 'Través BB', 'Boch. BB'])
+            ), 
+            title={'text': "TELA DE DP (Modo Head-Up)", 'y':0.98, 'x':0.5, 'xanchor': 'center', 'yanchor': 'top'},
+            showlegend=False, 
+            margin=dict(t=70, b=30, l=40, r=40), # Aumenta a margem do topo (t) para afastar o título
+            height=320 # Aumenta a altura geral para o gráfico "respirar"
         )
         st.plotly_chart(fig_compass, use_container_width=True)
         
@@ -449,6 +454,10 @@ with aba2:
                 
             delta_vo = np.abs(df['Vento_Dir_graus'] - df['Onda_Dir_graus'])
             X['Delta_Vento_Onda'] = np.where(delta_vo > 180, 360 - delta_vo, delta_vo)
+            
+            # --- A CORREÇÃO ESTÁ AQUI: Passando o Mar Cruzado para a tabela final da Aba 4 ---
+            df['Delta_Vento_Onda'] = X['Delta_Vento_Onda'] 
+            
             X['Esbeltez_Onda'] = np.where(df['Onda_Tp_s'] > 0, df['Onda_Hs_m'] / (df['Onda_Tp_s'] ** 2), 0)
             
             for param, col in zip(['Onda', 'Vento', 'Corr'], ['Onda_Dir_graus', 'Vento_Dir_graus', 'Corr_Dir_graus']):
@@ -466,7 +475,7 @@ with aba2:
             X_ia = X[features_ordem]
             for alvo in ['SLS_Guindaste', 'SLS_ROV', 'SLS_Barco_Apoio', 'SLS_Offloading']:
                 riscos = modelos_ia[alvo].predict_proba(X_ia)[:, 1]
-                df[f'Risco_Prob_{alvo}'] = riscos # Guardamos a porcentagem para a Aba 4
+                df[f'Risco_Prob_{alvo}'] = riscos 
                 df[f'Falha_{alvo}'] = (riscos >= limite_seguranca).astype(int)
                 
             downtime_mensal = df.groupby('Mes_Num')[[f'Falha_{alvo}' for alvo in ['SLS_Guindaste', 'SLS_ROV', 'SLS_Barco_Apoio', 'SLS_Offloading']]].mean()
