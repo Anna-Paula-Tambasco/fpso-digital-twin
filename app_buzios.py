@@ -783,8 +783,12 @@ with aba4:
         fig_timeline.add_hline(y=45, row=2, col=1, line_dash="solid", line_color="orange", annotation_text="Zona de Mar Cruzado")
         fig_timeline.add_hrect(y0=45, y1=180, row=2, col=1, fillcolor="orange", opacity=0.1, layer="below")
 
-        fig_timeline.add_vline(x=data_pico, line_width=2, line_dash="dashdot", line_color="black", annotation_text="💥 PICO", annotation_position="top left", row=1, col=1)
-        fig_timeline.add_vline(x=data_pico, line_width=2, line_dash="dashdot", line_color="black", row=2, col=1)
+        # --- A CEREJA DO BOLO: MARCO ZERO DO CICLONE ---
+        # Convertendo o Timestamp para texto (String) para evitar o bug matemático do Plotly
+        pico_str = data_pico.strftime('%Y-%m-%d %H:%M:%S')
+
+        fig_timeline.add_vline(x=pico_str, line_width=2, line_dash="dashdot", line_color="black", annotation_text="💥 PICO", annotation_position="top left", row=1, col=1)
+        fig_timeline.add_vline(x=pico_str, line_width=2, line_dash="dashdot", line_color="black", row=2, col=1)
 
         fig_timeline.update_layout(
             height=650, margin=dict(l=20, r=20, t=30, b=20),
